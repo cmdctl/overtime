@@ -1,0 +1,50 @@
+{{define "title"}}All Entries{{end}}
+{{define "content"}}
+<div class="stats">
+    {{range $username, $hours := .UserHours}}
+    <div class="stat-card">
+        <h3>{{printf "%.1f" $hours}}</h3>
+        <p>{{$username}}</p>
+    </div>
+    {{end}}
+</div>
+
+<div class="card">
+    <h2>All Overtime Entries</h2>
+    {{if .Entries}}
+    <table>
+        <thead>
+            <tr>
+                <th>Employee</th>
+                <th>Date</th>
+                <th>Hours</th>
+                <th>Description</th>
+                {{if .User.IsAdmin}}<th>Actions</th>{{end}}
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Entries}}
+            <tr>
+                <td>{{.User.Username}}</td>
+                <td>{{.Date.Format "2006-01-02"}}</td>
+                <td>{{printf "%.2f" .Hours}}</td>
+                <td>{{.Description}}</td>
+                {{if $.User.IsAdmin}}
+                <td class="actions">
+                    <a href="/overtime/edit?id={{.ID}}" class="btn btn-primary">Edit</a>
+                    <form method="POST" action="/overtime/delete" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this entry?');">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </td>
+                {{end}}
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p>No overtime entries found.</p>
+    {{end}}
+</div>
+{{end}}
+{{template "base" .}}

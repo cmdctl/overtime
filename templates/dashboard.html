@@ -1,0 +1,63 @@
+{{define "title"}}Dashboard{{end}}
+{{define "content"}}
+{{if .Error}}
+<div class="alert alert-error">{{.Error}}</div>
+{{end}}
+{{if .Success}}
+<div class="alert alert-success">{{.Success}}</div>
+{{end}}
+
+<div class="stats">
+    <div class="stat-card">
+        <h3>{{printf "%.1f" .TotalHours}}</h3>
+        <p>Total Overtime Hours</p>
+    </div>
+</div>
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>{{if .User.CanViewAllOvertime}}Recent Entries (All Users){{else}}My Overtime Entries{{end}}</h2>
+        {{if or .User.IsAdmin .User.IsEmployee}}
+        <a href="/overtime/new" class="btn btn-success">+ Add Entry</a>
+        {{end}}
+    </div>
+
+    {{if .Entries}}
+    <table>
+        <thead>
+            <tr>
+                {{if .User.CanViewAllOvertime}}<th>Employee</th>{{end}}
+                <th>Date</th>
+                <th>Hours</th>
+                <th>Description</th>
+                {{if or .User.IsAdmin .User.IsEmployee}}<th>Actions</th>{{end}}
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Entries}}
+            <tr>
+                {{if $.User.CanViewAllOvertime}}<td>{{.User.Username}}</td>{{end}}
+                <td>{{.Date.Format "2006-01-02"}}</td>
+                <td>{{printf "%.2f" .Hours}}</td>
+                <td>{{.Description}}</td>
+                {{if $.User.CanManageOvertimeFor .UserID}}
+                <td class="actions">
+                    <a href="/overtime/edit?id={{.ID}}" class="btn btn-primary">Edit</a>
+                    <form method="POST" action="/overtime/delete" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this entry?');">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </td>
+                {{else if or $.User.IsAdmin $.User.IsEmployee}}
+                <td></td>
+                {{end}}
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p>No overtime entries found.</p>
+    {{end}}
+</div>
+{{end}}
+{{template "base" .}}

@@ -1,0 +1,64 @@
+{{define "title"}}Invites{{end}}
+{{define "content"}}
+{{if .Error}}
+<div class="alert alert-error">{{.Error}}</div>
+{{end}}
+{{if .Success}}
+<div class="alert alert-success">{{.Success}}</div>
+{{end}}
+
+<div class="card">
+    <h2>Create New Invite</h2>
+    <form method="POST" action="/invites" style="display: flex; gap: 1rem; align-items: end;">
+        <div class="form-group" style="margin-bottom: 0; flex: 1;">
+            <label for="role">Role</label>
+            <select id="role" name="role" required>
+                <option value="EMPLOYEE">Employee</option>
+                <option value="HR">HR</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-success">Generate Invite</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Existing Invites</h2>
+    {{if .Invites}}
+    <table>
+        <thead>
+            <tr>
+                <th>Role</th>
+                <th>Invite Link</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Expires</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Invites}}
+            <tr>
+                <td>{{.Role}}</td>
+                <td>
+                    <div class="invite-link">/register?code={{.Code}}</div>
+                </td>
+                <td>
+                    {{if .Used}}
+                    <span class="badge badge-used">Used</span>
+                    {{else if .IsValid}}
+                    <span class="badge badge-active">Active</span>
+                    {{else}}
+                    <span class="badge badge-expired">Expired</span>
+                    {{end}}
+                </td>
+                <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+                <td>{{.ExpiresAt.Format "2006-01-02 15:04"}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p>No invites created yet.</p>
+    {{end}}
+</div>
+{{end}}
+{{template "base" .}}
