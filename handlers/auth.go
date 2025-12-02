@@ -177,9 +177,10 @@ func (h *AuthHandler) RegisterPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"Code":  code,
-		"Role":  invite.Role,
-		"Error": r.URL.Query().Get("error"),
+		"Code":     code,
+		"FullName": invite.FullName,
+		"Role":     invite.Role,
+		"Error":    r.URL.Query().Get("error"),
 	}
 	h.templates["register"].ExecuteTemplate(w, "base", data)
 }
@@ -236,6 +237,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	user := models.User{
 		Username:           username,
+		FullName:           invite.FullName,
 		PasswordHash:       string(hashedPassword),
 		Role:               invite.Role,
 		MustChangePassword: false,
@@ -303,6 +305,12 @@ func (h *AuthHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fullName := r.FormValue("full_name")
+	if fullName == "" {
+		http.Redirect(w, r, "/invites?error=Full+name+is+required", http.StatusSeeOther)
+		return
+	}
+
 	roleStr := r.FormValue("role")
 	var role models.Role
 	switch roleStr {
@@ -323,6 +331,7 @@ func (h *AuthHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 
 	invite := models.Invite{
 		Code:      code,
+		FullName:  fullName,
 		Role:      role,
 		CreatedBy: user.ID,
 		ExpiresAt: time.Now().Add(h.config.InviteExpiration),

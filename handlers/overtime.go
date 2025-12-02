@@ -161,7 +161,7 @@ func (h *OvertimeHandler) EditEntryPage(w http.ResponseWriter, r *http.Request) 
 
 	data := map[string]interface{}{
 		"User":  user,
-		"Entry": entry,
+		"Entry": &entry,
 		"Users": users,
 		"Error": r.URL.Query().Get("error"),
 	}
@@ -330,7 +330,7 @@ func (h *OvertimeHandler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	// Write data
 	for _, entry := range entries {
 		writer.Write([]string{
-			entry.User.Username,
+			entry.User.DisplayName(),
 			entry.Date.Format("2006-01-02"),
 			fmt.Sprintf("%.2f", entry.Hours),
 			entry.Description,
@@ -351,7 +351,7 @@ func (h *OvertimeHandler) AllEntriesPage(w http.ResponseWriter, r *http.Request)
 	// Group by user for summary
 	userHours := make(map[string]float64)
 	for _, entry := range entries {
-		userHours[entry.User.Username] += entry.Hours
+		userHours[entry.User.DisplayName()] += entry.Hours
 	}
 
 	data := map[string]interface{}{

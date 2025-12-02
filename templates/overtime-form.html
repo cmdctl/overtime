@@ -1,37 +1,35 @@
-{{define "title"}}Add Overtime{{end}}
+{{define "title"}}add-overtime{{end}}
 {{define "content"}}
-<div class="card" style="max-width: 600px; margin: 0 auto;">
-    <h2>Add Overtime Entry</h2>
+<div class="card" style="max-width: 500px;">
+    <h2>add overtime entry</h2>
     {{if .Error}}
     <div class="alert alert-error">{{.Error}}</div>
     {{end}}
     <form method="POST" action="/overtime/new">
         {{if .User.IsAdmin}}
         <div class="form-group">
-            <label for="user_id">Employee</label>
+            <label for="user_id">employee</label>
             <select id="user_id" name="user_id">
                 {{range .Users}}
-                <option value="{{.ID}}" {{if eq .ID $.User.ID}}selected{{end}}>{{.Username}} ({{.Role}})</option>
+                <option value="{{.ID}}" {{if eq .ID $.User.ID}}selected{{end}}>{{.DisplayName}} [{{.Role}}]</option>
                 {{end}}
             </select>
         </div>
         {{end}}
         <div class="form-group">
-            <label for="date">Date</label>
+            <label for="date">date</label>
             <input type="date" id="date" name="date" required value="{{.Today}}">
         </div>
         <div class="form-group">
-            <label for="hours">Hours</label>
+            <label for="hours">hours</label>
             <input type="number" id="hours" name="hours" step="0.5" min="0.5" max="24" required placeholder="e.g., 2.5">
         </div>
         <div class="form-group">
-            <label for="description">Description</label>
+            <label for="description">description</label>
             <textarea id="description" name="description" rows="3" placeholder="What did you work on?"></textarea>
         </div>
-        <div style="display: flex; gap: 1rem;">
-            <button type="submit" class="btn btn-success">Save Entry</button>
-            <a href="/dashboard" class="btn btn-secondary">Cancel</a>
-        </div>
+        <button type="submit" class="btn">[SAVE]</button>
+        <a href="/dashboard" class="btn btn-secondary">[CANCEL]</a>
     </form>
 </div>
 {{end}}

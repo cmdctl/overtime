@@ -1,11 +1,11 @@
-{{define "title"}}Export{{end}}
+{{define "title"}}export{{end}}
 {{define "content"}}
-<div class="card" style="max-width: 600px; margin: 0 auto;">
-    <h2>Export Overtime Data</h2>
-    <p style="margin-bottom: 1rem; color: #666;">Export overtime entries to CSV format for a specific month.</p>
+<div class="card" style="max-width: 500px;">
+    <h2>export overtime data</h2>
+    <p style="color: #888; margin-bottom: 15px;">Export overtime entries to CSV format for a specific month.</p>
     <form method="GET" action="/export/csv">
         <div class="form-group">
-            <label for="month">Month</label>
+            <label for="month">month</label>
             <select id="month" name="month" required>
                 <option value="1" {{if eq .CurrentMonth 1}}selected{{end}}>January</option>
                 <option value="2" {{if eq .CurrentMonth 2}}selected{{end}}>February</option>
@@ -22,14 +22,14 @@
             </select>
         </div>
         <div class="form-group">
-            <label for="year">Year</label>
+            <label for="year">year</label>
             <select id="year" name="year" required>
                 {{range .Years}}
                 <option value="{{.}}" {{if eq . $.CurrentYear}}selected{{end}}>{{.}}</option>
                 {{end}}
             </select>
         </div>
-        <button type="submit" class="btn btn-primary">Download CSV</button>
+        <button type="submit" class="btn btn-primary">[DOWNLOAD CSV]</button>
     </form>
 </div>
 {{end}}

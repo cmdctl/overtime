@@ -5,16 +5,16 @@ import (
 	"overtime/models"
 
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 var DB *gorm.DB
 
-func Init(dbPath string) error {
+func Init(dsn string) error {
 	var err error
-	DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
@@ -49,6 +49,7 @@ func seedDefaultAdmin() error {
 
 	admin := models.User{
 		Username:           "admin",
+		FullName:           "Administrator",
 		PasswordHash:       string(hashedPassword),
 		Role:               models.RoleAdmin,
 		MustChangePassword: true,

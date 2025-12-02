@@ -6,7 +6,7 @@ import (
 )
 
 type Config struct {
-	DatabasePath     string
+	DatabaseURL      string
 	JWTSecret        string
 	JWTExpiration    time.Duration
 	ServerPort       string
@@ -15,7 +15,7 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		DatabasePath:     getEnv("DATABASE_PATH", "overtime.db"),
+		DatabaseURL:      getEnv("DATABASE_URL", "postgresql://postgres@localhost:5432/overtime"),
 		JWTSecret:        getEnv("JWT_SECRET", "your-super-secret-key-change-in-production"),
 		JWTExpiration:    24 * time.Hour,
 		ServerPort:       getEnv("SERVER_PORT", "8080"),

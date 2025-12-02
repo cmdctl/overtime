@@ -1,50 +1,50 @@
-{{define "title"}}All Entries{{end}}
-{{define "content"}}
+{{define "title"}}all-entries{{end}} {{define "content"}}
 <div class="stats">
-    {{range $username, $hours := .UserHours}}
-    <div class="stat-card">
-        <h3>{{printf "%.1f" $hours}}</h3>
-        <p>{{$username}}</p>
-    </div>
-    {{end}}
+  {{range $username, $hours := .UserHours}}
+  <div class="stat-card">
+    <div class="value">{{printf "%.1f" $hours}}</div>
+    <div class="label">{{$username}}</div>
+  </div>
+  {{end}}
 </div>
 
 <div class="card">
-    <h2>All Overtime Entries</h2>
-    {{if .Entries}}
-    <table>
-        <thead>
-            <tr>
-                <th>Employee</th>
-                <th>Date</th>
-                <th>Hours</th>
-                <th>Description</th>
-                {{if .User.IsAdmin}}<th>Actions</th>{{end}}
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Entries}}
-            <tr>
-                <td>{{.User.Username}}</td>
-                <td>{{.Date.Format "2006-01-02"}}</td>
-                <td>{{printf "%.2f" .Hours}}</td>
-                <td>{{.Description}}</td>
-                {{if $.User.IsAdmin}}
-                <td class="actions">
-                    <a href="/overtime/edit?id={{.ID}}" class="btn btn-primary">Edit</a>
-                    <form method="POST" action="/overtime/delete" style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this entry?');">
-                        <input type="hidden" name="id" value="{{.ID}}">
-                        <button type="submit" class="btn btn-danger">Delete</button>
-                    </form>
-                </td>
-                {{end}}
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{else}}
-    <p>No overtime entries found.</p>
-    {{end}}
+  <h2>all overtime entries</h2>
+  {{if .Entries}}
+  <table>
+    <thead>
+      <tr>
+        <th>employee</th>
+        <th>date</th>
+        <th>hours</th>
+        <th>description</th>
+        {{if .User.IsAdmin}}
+        <th>actions</th>
+        {{end}}
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Entries}}
+      <tr>
+        <td>{{.User.DisplayName}}</td>
+        <td>{{.Date.Format "2006-01-02"}}</td>
+        <td>{{printf "%.2f" .Hours}}</td>
+        <td title="{{.Description}}">{{if gt (len .Description) 50}}{{slice .Description 0 50}}...{{else}}{{.Description}}{{end}}</td>
+        {{if $.User.IsAdmin}}
+        <td class="actions">
+          <a href="/overtime/edit?id={{.ID}}" class="btn btn-primary">[EDIT]</a>
+          <form method="POST" action="/overtime/delete" onsubmit="return confirm('Delete this entry?');">
+            <input type="hidden" name="id" value="{{.ID}}" />
+            <button type="submit" class="btn btn-danger">[DEL]</button>
+          </form>
+        </td>
+        {{end}}
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p style="color: #888">No overtime entries found.</p>
+  {{end}}
 </div>
-{{end}}
-{{template "base" .}}
+{{end}} {{template "base" .}}

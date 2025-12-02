@@ -14,6 +14,7 @@ type Invite struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 	Code      string         `gorm:"uniqueIndex;not null;size:64" json:"code"`
+	FullName  string         `gorm:"not null;size:200" json:"full_name"`
 	Role      Role           `gorm:"not null;size:20" json:"role"`
 	Used      bool           `gorm:"default:false" json:"used"`
 	CreatedBy uint           `gorm:"not null" json:"created_by"`

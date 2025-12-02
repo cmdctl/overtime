@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+
 	"overtime/config"
 	"overtime/database"
 	"overtime/handlers"
@@ -22,7 +23,7 @@ func main() {
 	middleware.SetJWTSecret(cfg.JWTSecret)
 
 	// Initialize database
-	if err := database.Init(cfg.DatabasePath); err != nil {
+	if err := database.Init(cfg.DatabaseURL); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
@@ -48,8 +49,8 @@ func main() {
 	router.Use(chimiddleware.Logger)
 	router.Use(chimiddleware.Recoverer)
 
-	// Static files
-	router.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	// // Static files
+	// router.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	// Public routes
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {

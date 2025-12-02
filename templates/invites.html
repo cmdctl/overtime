@@ -1,63 +1,63 @@
-{{define "title"}}Invites{{end}}
+{{define "title"}}invites{{end}}
 {{define "content"}}
-{{if .Error}}
-<div class="alert alert-error">{{.Error}}</div>
-{{end}}
-{{if .Success}}
-<div class="alert alert-success">{{.Success}}</div>
-{{end}}
+{{if .Error}}<div class="alert alert-error">{{.Error}}</div>{{end}}
+{{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
 
 <div class="card">
-    <h2>Create New Invite</h2>
-    <form method="POST" action="/invites" style="display: flex; gap: 1rem; align-items: end;">
-        <div class="form-group" style="margin-bottom: 0; flex: 1;">
-            <label for="role">Role</label>
+    <h2>generate new invite</h2>
+    <form method="POST" action="/invites">
+        <div class="form-group">
+            <label for="full_name">full name</label>
+            <input type="text" id="full_name" name="full_name" required placeholder="John Doe">
+        </div>
+        <div class="form-group">
+            <label for="role">role</label>
             <select id="role" name="role" required>
-                <option value="EMPLOYEE">Employee</option>
+                <option value="EMPLOYEE">EMPLOYEE</option>
                 <option value="HR">HR</option>
             </select>
         </div>
-        <button type="submit" class="btn btn-success">Generate Invite</button>
+        <button type="submit" class="btn">[GENERATE]</button>
     </form>
 </div>
 
 <div class="card">
-    <h2>Existing Invites</h2>
+    <h2>existing invites</h2>
     {{if .Invites}}
     <table>
         <thead>
             <tr>
-                <th>Role</th>
-                <th>Invite Link</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Expires</th>
+                <th>full name</th>
+                <th>role</th>
+                <th>invite link</th>
+                <th>status</th>
+                <th>expires</th>
             </tr>
         </thead>
         <tbody>
             {{range .Invites}}
             <tr>
-                <td>{{.Role}}</td>
+                <td>{{.FullName}}</td>
+                <td style="color: #ff00ff;">[{{.Role}}]</td>
                 <td>
                     <div class="invite-link">/register?code={{.Code}}</div>
                 </td>
                 <td>
                     {{if .Used}}
-                    <span class="badge badge-used">Used</span>
+                    <span class="badge badge-used"></span>
                     {{else if .IsValid}}
-                    <span class="badge badge-active">Active</span>
+                    <span class="badge badge-active"></span>
                     {{else}}
-                    <span class="badge badge-expired">Expired</span>
+                    <span class="badge badge-expired"></span>
                     {{end}}
                 </td>
-                <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
                 <td>{{.ExpiresAt.Format "2006-01-02 15:04"}}</td>
             </tr>
             {{end}}
         </tbody>
     </table>
     {{else}}
-    <p>No invites created yet.</p>
+    <p style="color: #888;">No invites created yet.</p>
     {{end}}
 </div>
 {{end}}
