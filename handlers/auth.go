@@ -3,11 +3,12 @@ package handlers
 import (
 	"html/template"
 	"net/http"
+	"time"
+
 	"overtime/config"
 	"overtime/database"
 	"overtime/middleware"
 	"overtime/models"
-	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -286,6 +287,7 @@ func (h *AuthHandler) InvitesPage(w http.ResponseWriter, r *http.Request) {
 
 	data := map[string]interface{}{
 		"User":    user,
+		"BaseURL": h.config.BaseURL,
 		"Invites": invites,
 		"Error":   r.URL.Query().Get("error"),
 		"Success": r.URL.Query().Get("success"),
@@ -318,6 +320,8 @@ func (h *AuthHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 		role = models.RoleEmployee
 	case "HR":
 		role = models.RoleHR
+	case "ADMIN":
+		role = models.RoleAdmin
 	default:
 		http.Redirect(w, r, "/invites?error=Invalid+role", http.StatusSeeOther)
 		return

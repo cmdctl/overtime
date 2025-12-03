@@ -6,6 +6,7 @@ import (
 )
 
 type Config struct {
+	BaseURL          string
 	DatabaseURL      string
 	JWTSecret        string
 	JWTExpiration    time.Duration
@@ -15,6 +16,7 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
+		BaseURL:          getEnv("BASE_URL", "http://localhost:8080"),
 		DatabaseURL:      getEnv("DATABASE_URL", "postgresql://postgres@localhost:5432/overtime"),
 		JWTSecret:        getEnv("JWT_SECRET", "your-super-secret-key-change-in-production"),
 		JWTExpiration:    24 * time.Hour,
