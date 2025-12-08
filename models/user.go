@@ -24,6 +24,10 @@ type User struct {
 	PasswordHash       string         `gorm:"not null" json:"-"`
 	Role               Role           `gorm:"not null;size:20" json:"role"`
 	MustChangePassword bool           `gorm:"default:true" json:"must_change_password"`
+	TeamID             *uint          `gorm:"index" json:"team_id"`
+	Team               *Team          `gorm:"foreignKey:TeamID" json:"team,omitempty"`
+	ProjectID          *uint          `gorm:"index" json:"project_id"`
+	Project            *Project       `gorm:"foreignKey:ProjectID" json:"project,omitempty"`
 	OvertimeEntries    []OvertimeEntry `gorm:"foreignKey:UserID" json:"overtime_entries,omitempty"`
 }
 

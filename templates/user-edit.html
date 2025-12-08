@@ -1,0 +1,49 @@
+{{define "title"}}edit user{{end}}
+{{define "content"}}
+{{if .Error}}<div class="alert alert-error">{{.Error}}</div>{{end}}
+
+<div class="card" style="max-width: 500px;">
+    <h2>edit user: {{.EditUser.Username}}</h2>
+    <form method="POST" action="/users/edit">
+        <input type="hidden" name="id" value="{{.EditUser.ID}}">
+
+        <div class="form-group">
+            <label for="full_name">full name</label>
+            <input type="text" id="full_name" name="full_name" value="{{.EditUser.FullName}}" required>
+        </div>
+
+        <div class="form-group">
+            <label for="role">role</label>
+            <select id="role" name="role" required>
+                <option value="EMPLOYEE" {{if eq .EditUser.Role "EMPLOYEE"}}selected{{end}}>EMPLOYEE</option>
+                <option value="HR" {{if eq .EditUser.Role "HR"}}selected{{end}}>HR</option>
+                <option value="ADMIN" {{if eq .EditUser.Role "ADMIN"}}selected{{end}}>ADMIN</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="team_id">team</label>
+            <select id="team_id" name="team_id">
+                <option value="">No Team</option>
+                {{range .Teams}}
+                <option value="{{.ID}}" {{if and $.EditUser.TeamID (eq .ID (deref $.EditUser.TeamID))}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="project_id">project</label>
+            <select id="project_id" name="project_id">
+                <option value="">No Project</option>
+                {{range .Projects}}
+                <option value="{{.ID}}" {{if and $.EditUser.ProjectID (eq .ID (deref $.EditUser.ProjectID))}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">[SAVE CHANGES]</button>
+        <a href="/users" class="btn btn-secondary">[CANCEL]</a>
+    </form>
+</div>
+{{end}}
+{{template "base" .}}

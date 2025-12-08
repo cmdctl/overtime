@@ -1,0 +1,50 @@
+{{define "title"}}teams{{end}}
+{{define "content"}}
+{{if .Error}}<div class="alert alert-error">{{.Error}}</div>{{end}}
+{{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+
+<div class="card">
+    <h2>create new team</h2>
+    <form method="POST" action="/teams">
+        <div class="form-group">
+            <label for="name">team name</label>
+            <input type="text" id="name" name="name" required placeholder="Engineering">
+        </div>
+        <button type="submit" class="btn">[CREATE TEAM]</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>existing teams</h2>
+    {{if .Teams}}
+    <table>
+        <thead>
+            <tr>
+                <th>id</th>
+                <th>name</th>
+                <th>actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Teams}}
+            <tr>
+                <td>{{.ID}}</td>
+                <td>{{.Name}}</td>
+                <td class="actions">
+                    <form method="POST" action="/teams/delete" onsubmit="return confirm('Delete this team?');">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="btn btn-danger">[DELETE]</button>
+                    </form>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p style="color: #888;">No teams created yet.</p>
+    {{end}}
+</div>
+
+<a href="/users" class="btn btn-secondary">[BACK TO USERS]</a>
+{{end}}
+{{template "base" .}}

@@ -25,6 +25,24 @@
         <option value="ADMIN">ADMIN</option>
       </select>
     </div>
+    <div class="form-group">
+      <label for="team_id">team (optional)</label>
+      <select id="team_id" name="team_id">
+        <option value="">No Team</option>
+        {{range .Teams}}
+        <option value="{{.ID}}">{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="project_id">project (optional)</label>
+      <select id="project_id" name="project_id">
+        <option value="">No Project</option>
+        {{range .Projects}}
+        <option value="{{.ID}}">{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
     <button type="submit" class="btn">[GENERATE]</button>
   </form>
 </div>
@@ -37,6 +55,8 @@
       <tr>
         <th>full name</th>
         <th>role</th>
+        <th>team</th>
+        <th>project</th>
         <th>invite link</th>
         <th>status</th>
         <th>expires</th>
@@ -47,6 +67,8 @@
       <tr>
         <td>{{.FullName}}</td>
         <td style="color: #ff00ff">[{{.Role}}]</td>
+        <td>{{if .Team}}{{.Team.Name}}{{else}}<span style="color:#555">-</span>{{end}}</td>
+        <td>{{if .Project}}{{.Project.Name}}{{else}}<span style="color:#555">-</span>{{end}}</td>
         <td>
           <div class="invite-link">{{$.BaseURL}}/register?code={{.Code}}</div>
         </td>

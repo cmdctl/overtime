@@ -27,14 +27,25 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
+	// Define template functions
+	funcMap := template.FuncMap{
+		"deref": func(p *uint) uint {
+			if p == nil {
+				return 0
+			}
+			return *p
+		},
+	}
+
 	// Parse templates - each page template paired with base
 	templates := make(map[string]*template.Template)
 	pages := []string{
 		"login", "register", "change-password", "dashboard",
 		"overtime-form", "overtime-edit", "invites", "export", "all-entries",
+		"users", "user-edit", "teams", "projects",
 	}
 	for _, page := range pages {
-		templates[page] = template.Must(template.ParseFiles(
+		templates[page] = template.Must(template.New("").Funcs(funcMap).ParseFiles(
 			"templates/base.html",
 			"templates/"+page+".html",
 		))
@@ -99,6 +110,16 @@ func main() {
 				r.Use(middleware.RequireRole(models.RoleAdmin))
 				r.Get("/invites", authHandler.InvitesPage)
 				r.Post("/invites", authHandler.CreateInvite)
+				r.Get("/users", authHandler.UsersPage)
+				r.Get("/users/edit", authHandler.EditUserPage)
+				r.Post("/users/edit", authHandler.UpdateUser)
+				r.Post("/users/delete", authHandler.DeleteUser)
+				r.Get("/teams", authHandler.TeamsPage)
+				r.Post("/teams", authHandler.CreateTeam)
+				r.Post("/teams/delete", authHandler.DeleteTeam)
+				r.Get("/projects", authHandler.ProjectsPage)
+				r.Post("/projects", authHandler.CreateProject)
+				r.Post("/projects/delete", authHandler.DeleteProject)
 			})
 		})
 	})

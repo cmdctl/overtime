@@ -20,6 +20,10 @@ type Invite struct {
 	CreatedBy uint           `gorm:"not null" json:"created_by"`
 	Creator   User           `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
 	ExpiresAt time.Time      `gorm:"not null" json:"expires_at"`
+	TeamID    *uint          `gorm:"index" json:"team_id"`
+	Team      *Team          `gorm:"foreignKey:TeamID" json:"team,omitempty"`
+	ProjectID *uint          `gorm:"index" json:"project_id"`
+	Project   *Project       `gorm:"foreignKey:ProjectID" json:"project,omitempty"`
 }
 
 func GenerateInviteCode() (string, error) {

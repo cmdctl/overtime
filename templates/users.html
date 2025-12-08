@@ -1,0 +1,77 @@
+{{define "title"}}users{{end}}
+{{define "content"}}
+{{if .Error}}<div class="alert alert-error">{{.Error}}</div>{{end}}
+{{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+
+<div class="card">
+    <h2>user management</h2>
+    <p style="color: #888; margin-bottom: 15px;">Manage users, assign teams and projects, change roles.</p>
+
+    <form method="GET" action="/users" style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="team">filter by team</label>
+            <select name="team" id="team" onchange="this.form.submit()">
+                <option value="">all teams</option>
+                {{range .Teams}}
+                <option value="{{.ID}}" {{if eq (printf "%d" .ID) $.TeamFilter}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="project">filter by project</label>
+            <select name="project" id="project" onchange="this.form.submit()">
+                <option value="">all projects</option>
+                {{range .Projects}}
+                <option value="{{.ID}}" {{if eq (printf "%d" .ID) $.ProjectFilter}}selected{{end}}>{{.Name}}</option>
+                {{end}}
+            </select>
+        </div>
+        {{if or .TeamFilter .ProjectFilter}}
+        <a href="/users" class="btn" style="margin-bottom: 0;">[CLEAR]</a>
+        {{end}}
+    </form>
+
+    {{if .Users}}
+    <table>
+        <thead>
+            <tr>
+                <th>username</th>
+                <th>full name</th>
+                <th>role</th>
+                <th>team</th>
+                <th>project</th>
+                <th>actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Users}}
+            <tr>
+                <td>{{.Username}}</td>
+                <td>{{.FullName}}</td>
+                <td style="color: #ff00ff">[{{.Role}}]</td>
+                <td>{{if .Team}}{{.Team.Name}}{{else}}<span style="color:#555">-</span>{{end}}</td>
+                <td>{{if .Project}}{{.Project.Name}}{{else}}<span style="color:#555">-</span>{{end}}</td>
+                <td class="actions">
+                    <a href="/users/edit?id={{.ID}}" class="btn btn-primary">[EDIT]</a>
+                    {{if ne .ID $.User.ID}}
+                    <form method="POST" action="/users/delete" onsubmit="return confirm('Delete user {{.Username}}? This will also delete all their overtime entries.');">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="btn btn-danger">[DEL]</button>
+                    </form>
+                    {{end}}
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p style="color: #888; margin-top: 15px;">No users found.</p>
+    {{end}}
+</div>
+
+<div style="display: flex; gap: 20px; flex-wrap: wrap;">
+    <a href="/teams" class="btn">[MANAGE TEAMS]</a>
+    <a href="/projects" class="btn">[MANAGE PROJECTS]</a>
+</div>
+{{end}}
+{{template "base" .}}

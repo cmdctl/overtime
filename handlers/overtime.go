@@ -32,25 +32,114 @@ func (h *OvertimeHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get filter parameters
+	teamIDStr := r.URL.Query().Get("team_id")
+	projectIDStr := r.URL.Query().Get("project_id")
+	monthStr := r.URL.Query().Get("month")
+	yearStr := r.URL.Query().Get("year")
+
 	var entries []models.OvertimeEntry
 	var totalHours float64
 
 	db := database.GetDB()
 
+	// Build query based on user permissions
+	query := db.Preload("User").Preload("User.Team").Preload("User.Project")
+
 	if user.CanViewAllOvertime() {
-		db.Preload("User").Order("date desc").Limit(50).Find(&entries)
-		db.Model(&models.OvertimeEntry{}).Select("COALESCE(SUM(hours), 0)").Scan(&totalHours)
+		// Admin/HR can see all entries
 	} else {
-		db.Preload("User").Where("user_id = ?", user.ID).Order("date desc").Limit(50).Find(&entries)
-		db.Model(&models.OvertimeEntry{}).Where("user_id = ?", user.ID).Select("COALESCE(SUM(hours), 0)").Scan(&totalHours)
+		query = query.Where("user_id = ?", user.ID)
+	}
+
+	// Apply team filter
+	var selectedTeamID uint
+	if teamIDStr != "" {
+		if tid, err := strconv.ParseUint(teamIDStr, 10, 32); err == nil && tid > 0 {
+			selectedTeamID = uint(tid)
+			query = query.Joins("JOIN users ON users.id = overtime_entries.user_id").
+				Where("users.team_id = ?", selectedTeamID)
+		}
+	}
+
+	// Apply project filter
+	var selectedProjectID uint
+	if projectIDStr != "" {
+		if pid, err := strconv.ParseUint(projectIDStr, 10, 32); err == nil && pid > 0 {
+			selectedProjectID = uint(pid)
+			if teamIDStr == "" {
+				query = query.Joins("JOIN users ON users.id = overtime_entries.user_id")
+			}
+			query = query.Where("users.project_id = ?", selectedProjectID)
+		}
+	}
+
+	// Apply month/year filter
+	var selectedMonth, selectedYear int
+	currentYear := time.Now().Year()
+	currentMonth := int(time.Now().Month())
+
+	if monthStr != "" {
+		if m, err := strconv.Atoi(monthStr); err == nil && m >= 1 && m <= 12 {
+			selectedMonth = m
+		}
+	}
+	if yearStr != "" {
+		if y, err := strconv.Atoi(yearStr); err == nil && y >= 2000 && y <= 2100 {
+			selectedYear = y
+		}
+	}
+
+	// Apply date filters
+	if selectedMonth > 0 && selectedYear > 0 {
+		// Both month and year specified
+		startDate := time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.UTC)
+		endDate := startDate.AddDate(0, 1, 0)
+		query = query.Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate)
+	} else if selectedMonth > 0 {
+		// Only month specified - filter by month across all years
+		query = query.Where("EXTRACT(MONTH FROM overtime_entries.date) = ?", selectedMonth)
+	} else if selectedYear > 0 {
+		// Only year specified - filter by year across all months
+		startDate := time.Date(selectedYear, 1, 1, 0, 0, 0, 0, time.UTC)
+		endDate := startDate.AddDate(1, 0, 0)
+		query = query.Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate)
+	}
+
+	query.Order("overtime_entries.date desc").Limit(100).Find(&entries)
+
+	// Calculate total hours for filtered entries
+	for _, entry := range entries {
+		totalHours += entry.Hours
+	}
+
+	// Get all teams and projects for filter dropdowns
+	var teams []models.Team
+	var projects []models.Project
+	db.Find(&teams)
+	db.Find(&projects)
+
+	// Generate years for dropdown
+	years := make([]int, 5)
+	for i := 0; i < 5; i++ {
+		years[i] = currentYear - i
 	}
 
 	data := map[string]interface{}{
-		"User":       user,
-		"Entries":    entries,
-		"TotalHours": totalHours,
-		"Error":      r.URL.Query().Get("error"),
-		"Success":    r.URL.Query().Get("success"),
+		"User":              user,
+		"Entries":           entries,
+		"TotalHours":        totalHours,
+		"Error":             r.URL.Query().Get("error"),
+		"Success":           r.URL.Query().Get("success"),
+		"Teams":             teams,
+		"Projects":          projects,
+		"SelectedTeamID":    selectedTeamID,
+		"SelectedProjectID": selectedProjectID,
+		"SelectedMonth":     selectedMonth,
+		"SelectedYear":      selectedYear,
+		"CurrentMonth":      currentMonth,
+		"CurrentYear":       currentYear,
+		"Years":             years,
 	}
 	h.templates["dashboard"].ExecuteTemplate(w, "base", data)
 }
@@ -271,17 +360,26 @@ func (h *OvertimeHandler) ExportPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db := database.GetDB()
+
 	currentYear := time.Now().Year()
 	years := make([]int, 5)
 	for i := 0; i < 5; i++ {
 		years[i] = currentYear - i
 	}
 
+	var teams []models.Team
+	var projects []models.Project
+	db.Find(&teams)
+	db.Find(&projects)
+
 	data := map[string]interface{}{
 		"User":         user,
 		"Years":        years,
 		"CurrentMonth": int(time.Now().Month()),
 		"CurrentYear":  currentYear,
+		"Teams":        teams,
+		"Projects":     projects,
 	}
 	h.templates["export"].ExecuteTemplate(w, "base", data)
 }
@@ -295,6 +393,8 @@ func (h *OvertimeHandler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 
 	monthStr := r.URL.Query().Get("month")
 	yearStr := r.URL.Query().Get("year")
+	teamIDStr := r.URL.Query().Get("team_id")
+	projectIDStr := r.URL.Query().Get("project_id")
 
 	month, err := strconv.Atoi(monthStr)
 	if err != nil || month < 1 || month > 12 {
@@ -311,11 +411,30 @@ func (h *OvertimeHandler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, 0)
 
+	db := database.GetDB()
+	query := db.Preload("User").Preload("User.Team").Preload("User.Project").
+		Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate)
+
+	// Apply team filter
+	if teamIDStr != "" {
+		if tid, err := strconv.ParseUint(teamIDStr, 10, 32); err == nil && tid > 0 {
+			query = query.Joins("JOIN users ON users.id = overtime_entries.user_id").
+				Where("users.team_id = ?", tid)
+		}
+	}
+
+	// Apply project filter
+	if projectIDStr != "" {
+		if pid, err := strconv.ParseUint(projectIDStr, 10, 32); err == nil && pid > 0 {
+			if teamIDStr == "" {
+				query = query.Joins("JOIN users ON users.id = overtime_entries.user_id")
+			}
+			query = query.Where("users.project_id = ?", pid)
+		}
+	}
+
 	var entries []models.OvertimeEntry
-	database.GetDB().Preload("User").
-		Where("date >= ? AND date < ?", startDate, endDate).
-		Order("date asc, user_id asc").
-		Find(&entries)
+	query.Order("overtime_entries.date asc, overtime_entries.user_id asc").Find(&entries)
 
 	filename := fmt.Sprintf("overtime_%d_%02d.csv", year, month)
 	w.Header().Set("Content-Type", "text/csv")
@@ -325,12 +444,22 @@ func (h *OvertimeHandler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	defer writer.Flush()
 
 	// Write header
-	writer.Write([]string{"Employee", "Date", "Hours", "Description"})
+	writer.Write([]string{"Employee", "Team", "Project", "Date", "Hours", "Description"})
 
 	// Write data
 	for _, entry := range entries {
+		teamName := ""
+		projectName := ""
+		if entry.User.Team != nil {
+			teamName = entry.User.Team.Name
+		}
+		if entry.User.Project != nil {
+			projectName = entry.User.Project.Name
+		}
 		writer.Write([]string{
 			entry.User.DisplayName(),
+			teamName,
+			projectName,
 			entry.Date.Format("2006-01-02"),
 			fmt.Sprintf("%.2f", entry.Hours),
 			entry.Description,
@@ -345,19 +474,103 @@ func (h *OvertimeHandler) AllEntriesPage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Get filter parameters
+	teamIDStr := r.URL.Query().Get("team_id")
+	projectIDStr := r.URL.Query().Get("project_id")
+	monthStr := r.URL.Query().Get("month")
+	yearStr := r.URL.Query().Get("year")
+
+	db := database.GetDB()
+	query := db.Preload("User").Preload("User.Team").Preload("User.Project")
+
+	// Apply team filter
+	var selectedTeamID uint
+	if teamIDStr != "" {
+		if tid, err := strconv.ParseUint(teamIDStr, 10, 32); err == nil && tid > 0 {
+			selectedTeamID = uint(tid)
+			query = query.Joins("JOIN users ON users.id = overtime_entries.user_id").
+				Where("users.team_id = ?", selectedTeamID)
+		}
+	}
+
+	// Apply project filter
+	var selectedProjectID uint
+	if projectIDStr != "" {
+		if pid, err := strconv.ParseUint(projectIDStr, 10, 32); err == nil && pid > 0 {
+			selectedProjectID = uint(pid)
+			if teamIDStr == "" {
+				query = query.Joins("JOIN users ON users.id = overtime_entries.user_id")
+			}
+			query = query.Where("users.project_id = ?", selectedProjectID)
+		}
+	}
+
+	// Apply month/year filter
+	var selectedMonth, selectedYear int
+	currentYear := time.Now().Year()
+
+	if monthStr != "" {
+		if m, err := strconv.Atoi(monthStr); err == nil && m >= 1 && m <= 12 {
+			selectedMonth = m
+		}
+	}
+	if yearStr != "" {
+		if y, err := strconv.Atoi(yearStr); err == nil && y >= 2000 && y <= 2100 {
+			selectedYear = y
+		}
+	}
+
+	// Apply date filters
+	if selectedMonth > 0 && selectedYear > 0 {
+		// Both month and year specified
+		startDate := time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.UTC)
+		endDate := startDate.AddDate(0, 1, 0)
+		query = query.Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate)
+	} else if selectedMonth > 0 {
+		// Only month specified - filter by month across all years
+		query = query.Where("EXTRACT(MONTH FROM overtime_entries.date) = ?", selectedMonth)
+	} else if selectedYear > 0 {
+		// Only year specified - filter by year across all months
+		startDate := time.Date(selectedYear, 1, 1, 0, 0, 0, 0, time.UTC)
+		endDate := startDate.AddDate(1, 0, 0)
+		query = query.Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate)
+	}
+
 	var entries []models.OvertimeEntry
-	database.GetDB().Preload("User").Order("date desc").Find(&entries)
+	query.Order("overtime_entries.date desc").Find(&entries)
 
 	// Group by user for summary
 	userHours := make(map[string]float64)
+	var totalHours float64
 	for _, entry := range entries {
 		userHours[entry.User.DisplayName()] += entry.Hours
+		totalHours += entry.Hours
+	}
+
+	// Get all teams and projects for filter dropdowns
+	var teams []models.Team
+	var projects []models.Project
+	db.Find(&teams)
+	db.Find(&projects)
+
+	// Generate years for dropdown
+	years := make([]int, 5)
+	for i := 0; i < 5; i++ {
+		years[i] = currentYear - i
 	}
 
 	data := map[string]interface{}{
-		"User":      user,
-		"Entries":   entries,
-		"UserHours": userHours,
+		"User":              user,
+		"Entries":           entries,
+		"UserHours":         userHours,
+		"TotalHours":        totalHours,
+		"Teams":             teams,
+		"Projects":          projects,
+		"SelectedTeamID":    selectedTeamID,
+		"SelectedProjectID": selectedProjectID,
+		"SelectedMonth":     selectedMonth,
+		"SelectedYear":      selectedYear,
+		"Years":             years,
 	}
 	h.templates["all-entries"].ExecuteTemplate(w, "base", data)
 }

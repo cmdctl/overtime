@@ -11,6 +11,8 @@
         <h2>new user registration</h2>
         <p class="mb-2" style="color: #888;">Welcome, <span style="color: #ffff00;">{{.FullName}}</span></p>
         <p class="mb-2" style="color: #888;">Assigned role: <span style="color: #ff00ff;">[{{.Role}}]</span></p>
+        {{if .Team}}<p class="mb-2" style="color: #888;">Team: <span style="color: #00ffff;">{{.Team.Name}}</span></p>{{end}}
+        {{if .Project}}<p class="mb-2" style="color: #888;">Project: <span style="color: #00ffff;">{{.Project.Name}}</span></p>{{end}}
         {{if .Error}}
         <div class="alert alert-error">{{.Error}}</div>
         {{end}}

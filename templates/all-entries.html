@@ -1,11 +1,70 @@
 {{define "title"}}all-entries{{end}} {{define "content"}}
 <div class="stats">
+  <div class="stat-card">
+    <div class="value">{{printf "%.1f" .TotalHours}}</div>
+    <div class="label">total hours{{if or .SelectedTeamID .SelectedProjectID .SelectedMonth}} (filtered){{end}}</div>
+  </div>
   {{range $username, $hours := .UserHours}}
   <div class="stat-card">
     <div class="value">{{printf "%.1f" $hours}}</div>
     <div class="label">{{$username}}</div>
   </div>
   {{end}}
+</div>
+
+<div class="card">
+    <h2>filters</h2>
+    <form method="GET" action="/overtime/all" class="filter-form">
+        <div class="filter-row">
+            <div class="form-group" style="display: inline-block; margin-right: 15px;">
+                <label for="team_id">team</label>
+                <select id="team_id" name="team_id">
+                    <option value="">All Teams</option>
+                    {{range .Teams}}
+                    <option value="{{.ID}}" {{if eq .ID $.SelectedTeamID}}selected{{end}}>{{.Name}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-group" style="display: inline-block; margin-right: 15px;">
+                <label for="project_id">project</label>
+                <select id="project_id" name="project_id">
+                    <option value="">All Projects</option>
+                    {{range .Projects}}
+                    <option value="{{.ID}}" {{if eq .ID $.SelectedProjectID}}selected{{end}}>{{.Name}}</option>
+                    {{end}}
+                </select>
+            </div>
+            <div class="form-group" style="display: inline-block; margin-right: 15px;">
+                <label for="month">month</label>
+                <select id="month" name="month">
+                    <option value="">All Months</option>
+                    <option value="1" {{if eq .SelectedMonth 1}}selected{{end}}>January</option>
+                    <option value="2" {{if eq .SelectedMonth 2}}selected{{end}}>February</option>
+                    <option value="3" {{if eq .SelectedMonth 3}}selected{{end}}>March</option>
+                    <option value="4" {{if eq .SelectedMonth 4}}selected{{end}}>April</option>
+                    <option value="5" {{if eq .SelectedMonth 5}}selected{{end}}>May</option>
+                    <option value="6" {{if eq .SelectedMonth 6}}selected{{end}}>June</option>
+                    <option value="7" {{if eq .SelectedMonth 7}}selected{{end}}>July</option>
+                    <option value="8" {{if eq .SelectedMonth 8}}selected{{end}}>August</option>
+                    <option value="9" {{if eq .SelectedMonth 9}}selected{{end}}>September</option>
+                    <option value="10" {{if eq .SelectedMonth 10}}selected{{end}}>October</option>
+                    <option value="11" {{if eq .SelectedMonth 11}}selected{{end}}>November</option>
+                    <option value="12" {{if eq .SelectedMonth 12}}selected{{end}}>December</option>
+                </select>
+            </div>
+            <div class="form-group" style="display: inline-block; margin-right: 15px;">
+                <label for="year">year</label>
+                <select id="year" name="year">
+                    <option value="">All Years</option>
+                    {{range .Years}}
+                    <option value="{{.}}" {{if eq . $.SelectedYear}}selected{{end}}>{{.}}</option>
+                    {{end}}
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">[APPLY FILTERS]</button>
+        <a href="/overtime/all" class="btn btn-secondary">[CLEAR]</a>
+    </form>
 </div>
 
 <div class="card">

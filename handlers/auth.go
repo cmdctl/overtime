@@ -3,6 +3,7 @@ package handlers
 import (
 	"html/template"
 	"net/http"
+	"strconv"
 	"time"
 
 	"overtime/config"
@@ -167,7 +168,7 @@ func (h *AuthHandler) RegisterPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var invite models.Invite
-	if err := database.GetDB().Where("code = ?", code).First(&invite).Error; err != nil {
+	if err := database.GetDB().Preload("Team").Preload("Project").Where("code = ?", code).First(&invite).Error; err != nil {
 		http.Error(w, "Invalid invite link", http.StatusBadRequest)
 		return
 	}
@@ -181,6 +182,8 @@ func (h *AuthHandler) RegisterPage(w http.ResponseWriter, r *http.Request) {
 		"Code":     code,
 		"FullName": invite.FullName,
 		"Role":     invite.Role,
+		"Team":     invite.Team,
+		"Project":  invite.Project,
 		"Error":    r.URL.Query().Get("error"),
 	}
 	h.templates["register"].ExecuteTemplate(w, "base", data)
@@ -242,6 +245,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		PasswordHash:       string(hashedPassword),
 		Role:               invite.Role,
 		MustChangePassword: false,
+		TeamID:             invite.TeamID,
+		ProjectID:          invite.ProjectID,
 	}
 
 	if err := database.GetDB().Create(&user).Error; err != nil {
@@ -282,15 +287,24 @@ func (h *AuthHandler) InvitesPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db := database.GetDB()
+
 	var invites []models.Invite
-	database.GetDB().Where("created_by = ?", user.ID).Order("created_at desc").Find(&invites)
+	db.Preload("Team").Preload("Project").Where("created_by = ?", user.ID).Order("created_at desc").Find(&invites)
+
+	var teams []models.Team
+	var projects []models.Project
+	db.Find(&teams)
+	db.Find(&projects)
 
 	data := map[string]interface{}{
-		"User":    user,
-		"BaseURL": h.config.BaseURL,
-		"Invites": invites,
-		"Error":   r.URL.Query().Get("error"),
-		"Success": r.URL.Query().Get("success"),
+		"User":     user,
+		"BaseURL":  h.config.BaseURL,
+		"Invites":  invites,
+		"Teams":    teams,
+		"Projects": projects,
+		"Error":    r.URL.Query().Get("error"),
+		"Success":  r.URL.Query().Get("success"),
 	}
 	h.templates["invites"].ExecuteTemplate(w, "base", data)
 }
@@ -341,10 +355,405 @@ func (h *AuthHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: time.Now().Add(h.config.InviteExpiration),
 	}
 
+	// Handle team assignment
+	teamIDStr := r.FormValue("team_id")
+	if teamIDStr != "" {
+		if tid, err := strconv.ParseUint(teamIDStr, 10, 32); err == nil && tid > 0 {
+			teamID := uint(tid)
+			invite.TeamID = &teamID
+		}
+	}
+
+	// Handle project assignment
+	projectIDStr := r.FormValue("project_id")
+	if projectIDStr != "" {
+		if pid, err := strconv.ParseUint(projectIDStr, 10, 32); err == nil && pid > 0 {
+			projectID := uint(pid)
+			invite.ProjectID = &projectID
+		}
+	}
+
 	if err := database.GetDB().Create(&invite).Error; err != nil {
 		http.Redirect(w, r, "/invites?error=Failed+to+create+invite", http.StatusSeeOther)
 		return
 	}
 
 	http.Redirect(w, r, "/invites?success=Invite+created+successfully", http.StatusSeeOther)
+}
+
+func (h *AuthHandler) UsersPage(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if !user.IsAdmin() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	db := database.GetDB()
+
+	// Get filter parameters
+	teamFilter := r.URL.Query().Get("team")
+	projectFilter := r.URL.Query().Get("project")
+
+	// Build query with filters
+	query := db.Preload("Team").Preload("Project").Order("created_at desc")
+
+	if teamFilter != "" {
+		if teamID, err := strconv.ParseUint(teamFilter, 10, 32); err == nil {
+			query = query.Where("team_id = ?", teamID)
+		}
+	}
+
+	if projectFilter != "" {
+		if projectID, err := strconv.ParseUint(projectFilter, 10, 32); err == nil {
+			query = query.Where("project_id = ?", projectID)
+		}
+	}
+
+	var users []models.User
+	query.Find(&users)
+
+	var teams []models.Team
+	var projects []models.Project
+	db.Find(&teams)
+	db.Find(&projects)
+
+	data := map[string]interface{}{
+		"User":          user,
+		"Users":         users,
+		"Teams":         teams,
+		"Projects":      projects,
+		"TeamFilter":    teamFilter,
+		"ProjectFilter": projectFilter,
+		"Error":         r.URL.Query().Get("error"),
+		"Success":       r.URL.Query().Get("success"),
+	}
+	h.templates["users"].ExecuteTemplate(w, "base", data)
+}
+
+func (h *AuthHandler) EditUserPage(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if !user.IsAdmin() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	idStr := r.URL.Query().Get("id")
+	if idStr == "" {
+		http.Redirect(w, r, "/users?error=Invalid+user+ID", http.StatusSeeOther)
+		return
+	}
+
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Redirect(w, r, "/users?error=Invalid+user+ID", http.StatusSeeOther)
+		return
+	}
+
+	db := database.GetDB()
+
+	var editUser models.User
+	if err := db.Preload("Team").Preload("Project").First(&editUser, id).Error; err != nil {
+		http.Redirect(w, r, "/users?error=User+not+found", http.StatusSeeOther)
+		return
+	}
+
+	var teams []models.Team
+	var projects []models.Project
+	db.Find(&teams)
+	db.Find(&projects)
+
+	data := map[string]interface{}{
+		"User":     user,
+		"EditUser": &editUser,
+		"Teams":    teams,
+		"Projects": projects,
+		"Error":    r.URL.Query().Get("error"),
+	}
+	h.templates["user-edit"].ExecuteTemplate(w, "base", data)
+}
+
+func (h *AuthHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if !user.IsAdmin() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/users?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	idStr := r.FormValue("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Redirect(w, r, "/users?error=Invalid+user+ID", http.StatusSeeOther)
+		return
+	}
+
+	db := database.GetDB()
+
+	var editUser models.User
+	if err := db.First(&editUser, id).Error; err != nil {
+		http.Redirect(w, r, "/users?error=User+not+found", http.StatusSeeOther)
+		return
+	}
+
+	// Update full name
+	fullName := r.FormValue("full_name")
+	if fullName != "" {
+		editUser.FullName = fullName
+	}
+
+	// Update role
+	roleStr := r.FormValue("role")
+	switch roleStr {
+	case "EMPLOYEE":
+		editUser.Role = models.RoleEmployee
+	case "HR":
+		editUser.Role = models.RoleHR
+	case "ADMIN":
+		editUser.Role = models.RoleAdmin
+	}
+
+	// Update team
+	teamIDStr := r.FormValue("team_id")
+	if teamIDStr == "" {
+		editUser.TeamID = nil
+	} else {
+		if tid, err := strconv.ParseUint(teamIDStr, 10, 32); err == nil {
+			teamID := uint(tid)
+			editUser.TeamID = &teamID
+		}
+	}
+
+	// Update project
+	projectIDStr := r.FormValue("project_id")
+	if projectIDStr == "" {
+		editUser.ProjectID = nil
+	} else {
+		if pid, err := strconv.ParseUint(projectIDStr, 10, 32); err == nil {
+			projectID := uint(pid)
+			editUser.ProjectID = &projectID
+		}
+	}
+
+	if err := db.Save(&editUser).Error; err != nil {
+		http.Redirect(w, r, "/users/edit?id="+idStr+"&error=Failed+to+update+user", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/users?success=User+updated+successfully", http.StatusSeeOther)
+}
+
+func (h *AuthHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if !user.IsAdmin() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/users?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	idStr := r.FormValue("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Redirect(w, r, "/users?error=Invalid+user+ID", http.StatusSeeOther)
+		return
+	}
+
+	// Prevent self-deletion
+	if uint(id) == user.ID {
+		http.Redirect(w, r, "/users?error=Cannot+delete+your+own+account", http.StatusSeeOther)
+		return
+	}
+
+	db := database.GetDB()
+
+	// Delete user's overtime entries first
+	if err := db.Where("user_id = ?", id).Delete(&models.OvertimeEntry{}).Error; err != nil {
+		http.Redirect(w, r, "/users?error=Failed+to+delete+user+entries", http.StatusSeeOther)
+		return
+	}
+
+	// Delete the user (soft delete since User has DeletedAt)
+	if err := db.Delete(&models.User{}, id).Error; err != nil {
+		http.Redirect(w, r, "/users?error=Failed+to+delete+user", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/users?success=User+deleted+successfully", http.StatusSeeOther)
+}
+
+func (h *AuthHandler) TeamsPage(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if !user.IsAdmin() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	db := database.GetDB()
+
+	var teams []models.Team
+	db.Find(&teams)
+
+	data := map[string]interface{}{
+		"User":    user,
+		"Teams":   teams,
+		"Error":   r.URL.Query().Get("error"),
+		"Success": r.URL.Query().Get("success"),
+	}
+	h.templates["teams"].ExecuteTemplate(w, "base", data)
+}
+
+func (h *AuthHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if !user.IsAdmin() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/teams?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	name := r.FormValue("name")
+	if name == "" {
+		http.Redirect(w, r, "/teams?error=Team+name+is+required", http.StatusSeeOther)
+		return
+	}
+
+	team := models.Team{Name: name}
+	if err := database.GetDB().Create(&team).Error; err != nil {
+		http.Redirect(w, r, "/teams?error=Failed+to+create+team", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/teams?success=Team+created+successfully", http.StatusSeeOther)
+}
+
+func (h *AuthHandler) DeleteTeam(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if !user.IsAdmin() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/teams?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	idStr := r.FormValue("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Redirect(w, r, "/teams?error=Invalid+team+ID", http.StatusSeeOther)
+		return
+	}
+
+	db := database.GetDB()
+
+	// Check if any users are assigned to this team
+	var userCount int64
+	db.Model(&models.User{}).Where("team_id = ?", id).Count(&userCount)
+	if userCount > 0 {
+		http.Redirect(w, r, "/teams?error=Cannot+delete+team+with+assigned+users", http.StatusSeeOther)
+		return
+	}
+
+	if err := db.Delete(&models.Team{}, id).Error; err != nil {
+		http.Redirect(w, r, "/teams?error=Failed+to+delete+team", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/teams?success=Team+deleted+successfully", http.StatusSeeOther)
+}
+
+func (h *AuthHandler) ProjectsPage(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if !user.IsAdmin() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	db := database.GetDB()
+
+	var projects []models.Project
+	db.Find(&projects)
+
+	data := map[string]interface{}{
+		"User":     user,
+		"Projects": projects,
+		"Error":    r.URL.Query().Get("error"),
+		"Success":  r.URL.Query().Get("success"),
+	}
+	h.templates["projects"].ExecuteTemplate(w, "base", data)
+}
+
+func (h *AuthHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if !user.IsAdmin() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/projects?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	name := r.FormValue("name")
+	if name == "" {
+		http.Redirect(w, r, "/projects?error=Project+name+is+required", http.StatusSeeOther)
+		return
+	}
+
+	project := models.Project{Name: name}
+	if err := database.GetDB().Create(&project).Error; err != nil {
+		http.Redirect(w, r, "/projects?error=Failed+to+create+project", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/projects?success=Project+created+successfully", http.StatusSeeOther)
+}
+
+func (h *AuthHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if !user.IsAdmin() {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/projects?error=Invalid+form+data", http.StatusSeeOther)
+		return
+	}
+
+	idStr := r.FormValue("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		http.Redirect(w, r, "/projects?error=Invalid+project+ID", http.StatusSeeOther)
+		return
+	}
+
+	db := database.GetDB()
+
+	// Check if any users are assigned to this project
+	var userCount int64
+	db.Model(&models.User{}).Where("project_id = ?", id).Count(&userCount)
+	if userCount > 0 {
+		http.Redirect(w, r, "/projects?error=Cannot+delete+project+with+assigned+users", http.StatusSeeOther)
+		return
+	}
+
+	if err := db.Delete(&models.Project{}, id).Error; err != nil {
+		http.Redirect(w, r, "/projects?error=Failed+to+delete+project", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/projects?success=Project+deleted+successfully", http.StatusSeeOther)
 }

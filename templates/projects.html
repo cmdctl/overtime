@@ -1,0 +1,50 @@
+{{define "title"}}projects{{end}}
+{{define "content"}}
+{{if .Error}}<div class="alert alert-error">{{.Error}}</div>{{end}}
+{{if .Success}}<div class="alert alert-success">{{.Success}}</div>{{end}}
+
+<div class="card">
+    <h2>create new project</h2>
+    <form method="POST" action="/projects">
+        <div class="form-group">
+            <label for="name">project name</label>
+            <input type="text" id="name" name="name" required placeholder="Project Alpha">
+        </div>
+        <button type="submit" class="btn">[CREATE PROJECT]</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>existing projects</h2>
+    {{if .Projects}}
+    <table>
+        <thead>
+            <tr>
+                <th>id</th>
+                <th>name</th>
+                <th>actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Projects}}
+            <tr>
+                <td>{{.ID}}</td>
+                <td>{{.Name}}</td>
+                <td class="actions">
+                    <form method="POST" action="/projects/delete" onsubmit="return confirm('Delete this project?');">
+                        <input type="hidden" name="id" value="{{.ID}}">
+                        <button type="submit" class="btn btn-danger">[DELETE]</button>
+                    </form>
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p style="color: #888;">No projects created yet.</p>
+    {{end}}
+</div>
+
+<a href="/users" class="btn btn-secondary">[BACK TO USERS]</a>
+{{end}}
+{{template "base" .}}

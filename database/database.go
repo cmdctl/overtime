@@ -22,7 +22,7 @@ func Init(dsn string) error {
 	}
 
 	// Auto migrate the schema
-	err = DB.AutoMigrate(&models.User{}, &models.OvertimeEntry{}, &models.Invite{})
+	err = DB.AutoMigrate(&models.Team{}, &models.Project{}, &models.User{}, &models.OvertimeEntry{}, &models.Invite{})
 	if err != nil {
 		return err
 	}
