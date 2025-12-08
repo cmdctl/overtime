@@ -1,0 +1,129 @@
+{{define "title"}}supervisor dashboard{{end}} {{define "content"}} {{if .Error}}
+<div class="alert alert-error">{{.Error}}</div>
+{{end}} {{if .Success}}
+<div class="alert alert-success">{{.Success}}</div>
+{{end}}
+
+{{if .Project}}
+<div class="card">
+  <h2>project: {{.Project.Name}}</h2>
+</div>
+{{end}}
+
+{{if .Teams}}
+<div class="card">
+  <h2>filters</h2>
+  <form method="GET" action="/supervisor/dashboard">
+    <div class="form-group">
+      <label for="team_id">team</label>
+      <select id="team_id" name="team_id">
+        <option value="">All Teams</option>
+        {{range .Teams}}
+        <option value="{{.ID}}" {{if eq .ID $.SelectedTeamID}}selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="month">month</label>
+      <select id="month" name="month">
+        <option value="">All Months</option>
+        <option value="1" {{if eq .SelectedMonth 1}}selected{{end}}>January</option>
+        <option value="2" {{if eq .SelectedMonth 2}}selected{{end}}>February</option>
+        <option value="3" {{if eq .SelectedMonth 3}}selected{{end}}>March</option>
+        <option value="4" {{if eq .SelectedMonth 4}}selected{{end}}>April</option>
+        <option value="5" {{if eq .SelectedMonth 5}}selected{{end}}>May</option>
+        <option value="6" {{if eq .SelectedMonth 6}}selected{{end}}>June</option>
+        <option value="7" {{if eq .SelectedMonth 7}}selected{{end}}>July</option>
+        <option value="8" {{if eq .SelectedMonth 8}}selected{{end}}>August</option>
+        <option value="9" {{if eq .SelectedMonth 9}}selected{{end}}>September</option>
+        <option value="10" {{if eq .SelectedMonth 10}}selected{{end}}>October</option>
+        <option value="11" {{if eq .SelectedMonth 11}}selected{{end}}>November</option>
+        <option value="12" {{if eq .SelectedMonth 12}}selected{{end}}>December</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="year">year</label>
+      <select id="year" name="year">
+        <option value="">All Years</option>
+        {{range .Years}}
+        <option value="{{.}}" {{if eq . $.SelectedYear}}selected{{end}}>{{.}}</option>
+        {{end}}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">[FILTER]</button>
+  </form>
+</div>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="value">{{printf "%.1f" .TotalHours}}</div>
+    <div class="label">TOTAL HOURS</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{len .Entries}}</div>
+    <div class="label">ENTRIES</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{len .UserHours}}</div>
+    <div class="label">EMPLOYEES</div>
+  </div>
+</div>
+
+{{if .UserHours}}
+<div class="card">
+  <h2>hours by employee</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>employee</th>
+        <th>total hours</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range $name, $hours := .UserHours}}
+      <tr>
+        <td>{{$name}}</td>
+        <td>{{printf "%.2f" $hours}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}
+
+<div class="card">
+  <h2>overtime entries</h2>
+  {{if .Entries}}
+  <table>
+    <thead>
+      <tr>
+        <th>date</th>
+        <th>employee</th>
+        <th>team</th>
+        <th>hours</th>
+        <th>description</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Entries}}
+      <tr>
+        <td>{{.Date.Format "2006-01-02"}}</td>
+        <td>{{.User.DisplayName}}</td>
+        <td>{{if .User.Team}}{{.User.Team.Name}}{{else}}<span style="color:#555">-</span>{{end}}</td>
+        <td>{{printf "%.2f" .Hours}}</td>
+        <td>{{if .Description}}{{.Description}}{{else}}<span style="color:#555">-</span>{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p style="color: #888">No overtime entries found for the selected filters.</p>
+  {{end}}
+</div>
+{{else}}
+<div class="card">
+  <h2>no team assignments</h2>
+  <p style="color: #888">You have not been assigned to supervise any teams yet. Please contact an administrator.</p>
+</div>
+{{end}}
+{{end}} {{template "base" .}}

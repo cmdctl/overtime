@@ -43,6 +43,7 @@ func main() {
 		"login", "register", "change-password", "dashboard",
 		"overtime-form", "overtime-edit", "invites", "export", "all-entries",
 		"users", "user-edit", "teams", "projects",
+		"supervisors", "supervisor-dashboard", "supervisor-export",
 	}
 	for _, page := range pages {
 		templates[page] = template.Must(template.New("").Funcs(funcMap).ParseFiles(
@@ -54,6 +55,7 @@ func main() {
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(cfg, templates)
 	overtimeHandler := handlers.NewOvertimeHandler(cfg, templates)
+	supervisorHandler := handlers.NewSupervisorHandler(cfg, templates)
 
 	// Setup router
 	router := chi.NewRouter()
@@ -105,6 +107,14 @@ func main() {
 				r.Get("/export/csv", overtimeHandler.ExportCSV)
 			})
 
+			// Supervisor only routes
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole(models.RoleSupervisor))
+				r.Get("/supervisor/dashboard", supervisorHandler.SupervisorDashboard)
+				r.Get("/supervisor/export", supervisorHandler.SupervisorExportPage)
+				r.Get("/supervisor/export/csv", supervisorHandler.SupervisorExportCSV)
+			})
+
 			// Admin only routes
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequireRole(models.RoleAdmin))
@@ -120,6 +130,9 @@ func main() {
 				r.Get("/projects", authHandler.ProjectsPage)
 				r.Post("/projects", authHandler.CreateProject)
 				r.Post("/projects/delete", authHandler.DeleteProject)
+				r.Get("/supervisors", supervisorHandler.SupervisorsPage)
+				r.Post("/supervisors/assign", supervisorHandler.AssignSupervisor)
+				r.Post("/supervisors/remove", supervisorHandler.RemoveSupervisorAssignment)
 			})
 		})
 	})

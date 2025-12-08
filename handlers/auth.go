@@ -73,6 +73,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Redirect supervisors to their dedicated dashboard
+	if user.IsSupervisor() {
+		http.Redirect(w, r, "/supervisor/dashboard", http.StatusSeeOther)
+		return
+	}
+
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
 
@@ -156,6 +162,12 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
+
+	// Redirect supervisors to their dedicated dashboard
+	if user.IsSupervisor() {
+		http.Redirect(w, r, "/supervisor/dashboard", http.StatusSeeOther)
+		return
+	}
 
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
@@ -257,6 +269,16 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// User set their own password during registration, no need to change it
 	database.GetDB().Model(&user).Update("must_change_password", false)
 
+	// If this is a supervisor with a team assigned, create the TeamSupervisor assignment
+	// (the project is stored on the User record via ProjectID)
+	if user.IsSupervisor() && invite.TeamID != nil {
+		assignment := models.TeamSupervisor{
+			UserID: user.ID,
+			TeamID: *invite.TeamID,
+		}
+		database.GetDB().Create(&assignment)
+	}
+
 	// Mark invite as used
 	invite.Used = true
 	database.GetDB().Save(&invite)
@@ -276,6 +298,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
+
+	// Redirect supervisors to their dedicated dashboard
+	if user.IsSupervisor() {
+		http.Redirect(w, r, "/supervisor/dashboard", http.StatusSeeOther)
+		return
+	}
 
 	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
@@ -332,6 +360,8 @@ func (h *AuthHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 	switch roleStr {
 	case "EMPLOYEE":
 		role = models.RoleEmployee
+	case "SUPERVISOR":
+		role = models.RoleSupervisor
 	case "HR":
 		role = models.RoleHR
 	case "ADMIN":
@@ -510,6 +540,8 @@ func (h *AuthHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	switch roleStr {
 	case "EMPLOYEE":
 		editUser.Role = models.RoleEmployee
+	case "SUPERVISOR":
+		editUser.Role = models.RoleSupervisor
 	case "HR":
 		editUser.Role = models.RoleHR
 	case "ADMIN":

@@ -16,6 +16,7 @@
             <label for="role">role</label>
             <select id="role" name="role" required>
                 <option value="EMPLOYEE" {{if eq .EditUser.Role "EMPLOYEE"}}selected{{end}}>EMPLOYEE</option>
+                <option value="SUPERVISOR" {{if eq .EditUser.Role "SUPERVISOR"}}selected{{end}}>SUPERVISOR</option>
                 <option value="HR" {{if eq .EditUser.Role "HR"}}selected{{end}}>HR</option>
                 <option value="ADMIN" {{if eq .EditUser.Role "ADMIN"}}selected{{end}}>ADMIN</option>
             </select>

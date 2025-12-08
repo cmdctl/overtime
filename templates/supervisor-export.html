@@ -1,0 +1,59 @@
+{{define "title"}}supervisor export{{end}} {{define "content"}} {{if .Error}}
+<div class="alert alert-error">{{.Error}}</div>
+{{end}}
+
+{{if .Project}}
+<div class="card">
+  <h2>project: {{.Project.Name}}</h2>
+</div>
+{{end}}
+
+{{if .Teams}}
+<div class="card">
+  <h2>export overtime data</h2>
+  <p style="color: #888; margin-bottom: 15px;">Export overtime entries for your assigned teams to CSV format.</p>
+  <form method="GET" action="/supervisor/export/csv">
+    <div class="form-group">
+      <label for="team_id">team</label>
+      <select id="team_id" name="team_id">
+        <option value="">All Teams</option>
+        {{range .Teams}}
+        <option value="{{.ID}}">{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="month">month</label>
+      <select id="month" name="month" required>
+        <option value="1" {{if eq .CurrentMonth 1}}selected{{end}}>January</option>
+        <option value="2" {{if eq .CurrentMonth 2}}selected{{end}}>February</option>
+        <option value="3" {{if eq .CurrentMonth 3}}selected{{end}}>March</option>
+        <option value="4" {{if eq .CurrentMonth 4}}selected{{end}}>April</option>
+        <option value="5" {{if eq .CurrentMonth 5}}selected{{end}}>May</option>
+        <option value="6" {{if eq .CurrentMonth 6}}selected{{end}}>June</option>
+        <option value="7" {{if eq .CurrentMonth 7}}selected{{end}}>July</option>
+        <option value="8" {{if eq .CurrentMonth 8}}selected{{end}}>August</option>
+        <option value="9" {{if eq .CurrentMonth 9}}selected{{end}}>September</option>
+        <option value="10" {{if eq .CurrentMonth 10}}selected{{end}}>October</option>
+        <option value="11" {{if eq .CurrentMonth 11}}selected{{end}}>November</option>
+        <option value="12" {{if eq .CurrentMonth 12}}selected{{end}}>December</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="year">year</label>
+      <select id="year" name="year" required>
+        {{range .Years}}
+        <option value="{{.}}" {{if eq . $.CurrentYear}}selected{{end}}>{{.}}</option>
+        {{end}}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">[EXPORT CSV]</button>
+  </form>
+</div>
+{{else}}
+<div class="card">
+  <h2>no team assignments</h2>
+  <p style="color: #888">You have not been assigned to supervise any teams yet. Please contact an administrator.</p>
+</div>
+{{end}}
+{{end}} {{template "base" .}}

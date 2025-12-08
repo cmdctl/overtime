@@ -9,9 +9,10 @@ import (
 type Role string
 
 const (
-	RoleAdmin    Role = "ADMIN"
-	RoleHR       Role = "HR"
-	RoleEmployee Role = "EMPLOYEE"
+	RoleAdmin      Role = "ADMIN"
+	RoleHR         Role = "HR"
+	RoleEmployee   Role = "EMPLOYEE"
+	RoleSupervisor Role = "SUPERVISOR"
 )
 
 type User struct {
@@ -48,6 +49,10 @@ func (u *User) IsHR() bool {
 
 func (u *User) IsEmployee() bool {
 	return u.Role == RoleEmployee
+}
+
+func (u *User) IsSupervisor() bool {
+	return u.Role == RoleSupervisor
 }
 
 func (u *User) CanManageOvertimeFor(userID uint) bool {

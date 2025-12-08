@@ -1,0 +1,79 @@
+{{define "title"}}supervisors{{end}} {{define "content"}} {{if .Error}}
+<div class="alert alert-error">{{.Error}}</div>
+{{end}} {{if .Success}}
+<div class="alert alert-success">{{.Success}}</div>
+{{end}}
+
+<div class="card">
+  <h2>assign team to supervisor</h2>
+  {{if .Supervisors}}
+  <form method="POST" action="/supervisors/assign">
+    <div class="form-group">
+      <label for="user_id">supervisor</label>
+      <select id="user_id" name="user_id" required>
+        <option value="">Select Supervisor</option>
+        {{range .Supervisors}}
+        <option value="{{.ID}}">{{.DisplayName}} ({{.Username}}) {{if .Project}}- Project: {{.Project.Name}}{{else}}- No Project{{end}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="team_id">team</label>
+      <select id="team_id" name="team_id" required>
+        <option value="">Select Team</option>
+        {{range .Teams}}
+        <option value="{{.ID}}">{{.Name}}</option>
+        {{end}}
+      </select>
+    </div>
+    <button type="submit" class="btn">[ASSIGN TEAM]</button>
+  </form>
+  {{else}}
+  <p style="color: #888">No users with SUPERVISOR role exist. Create a supervisor user first using invites.</p>
+  {{end}}
+</div>
+
+<div class="card">
+  <h2>current supervisor team assignments</h2>
+  {{if .Assignments}}
+  <table>
+    <thead>
+      <tr>
+        <th>supervisor</th>
+        <th>project</th>
+        <th>team</th>
+        <th>actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Assignments}}
+      <tr>
+        <td>{{.User.DisplayName}} <span style="color:#888">({{.User.Username}})</span></td>
+        <td>{{if .User.Project}}{{.User.Project.Name}}{{else}}<span style="color:#f00">No Project</span>{{end}}</td>
+        <td>{{.Team.Name}}</td>
+        <td>
+          <form method="POST" action="/supervisors/remove" style="display:inline">
+            <input type="hidden" name="id" value="{{.ID}}" />
+            <button type="submit" class="btn btn-danger" onclick="return confirm('Remove this team assignment?')">[REMOVE]</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p style="color: #888">No supervisor team assignments yet.</p>
+  {{end}}
+</div>
+
+<div class="card">
+  <h2>help</h2>
+  <p style="color: #888">
+    Supervisors can view overtime hours for team members within their assigned project.<br/><br/>
+    <strong>Setup steps:</strong><br/>
+    1. Create an invite with SUPERVISOR role and assign a project<br/>
+    2. After the supervisor registers, assign them to one or more teams here<br/>
+    3. The supervisor will only see overtime for employees in those teams AND their project
+  </p>
+</div>
+{{end}} {{template "base" .}}

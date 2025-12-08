@@ -421,7 +421,13 @@
             <span class="role">[{{.User.Role}}]</span> {{.User.DisplayName}}
           </div>
           <div class="navbar-content">
+            {{if .User.IsSupervisor}}
+            <a href="/supervisor/dashboard">dashboard</a>
+            <span class="sep">|</span>
+            <a href="/supervisor/export">export</a>
+            {{else}}
             <a href="/dashboard">dashboard</a>
+            {{end}}
             <span class="sep">|</span>
             {{if .User.CanViewAllOvertime}}
             <a href="/overtime/all">all-entries</a>
@@ -432,6 +438,8 @@
             <a href="/invites">invites</a>
             <span class="sep">|</span>
             <a href="/users">users</a>
+            <span class="sep">|</span>
+            <a href="/supervisors">supervisors</a>
             <span class="sep">|</span>
             {{end}}
             <a href="/logout">logout</a>
