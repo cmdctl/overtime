@@ -13,7 +13,7 @@ type OvertimeEntry struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 	UserID      uint           `gorm:"not null;index" json:"user_id"`
 	User        User           `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Username    string         `gorm:"not null;size:200" json:"username"`
+	Username    string         `gorm:"size:200" json:"username"`
 	TeamName    string         `gorm:"size:100;index" json:"team_name"`
 	ProjectName string         `gorm:"size:100;index" json:"project_name"`
 	Date        time.Time      `gorm:"not null;type:date" json:"date"`
