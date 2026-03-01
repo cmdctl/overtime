@@ -44,7 +44,7 @@ func (h *OvertimeHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	db := database.GetDB()
 
 	// Build query based on user permissions
-	query := db.Preload("User").Preload("User.Team").Preload("User.Project")
+	query := db.Model(&models.OvertimeEntry{})
 
 	if user.CanViewAllOvertime() {
 		// Admin/HR can see all entries
@@ -57,8 +57,10 @@ func (h *OvertimeHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	if teamIDStr != "" {
 		if tid, err := strconv.ParseUint(teamIDStr, 10, 32); err == nil && tid > 0 {
 			selectedTeamID = uint(tid)
-			query = query.Joins("JOIN users ON users.id = overtime_entries.user_id").
-				Where("users.team_id = ?", selectedTeamID)
+			var team models.Team
+			if err := db.First(&team, selectedTeamID).Error; err == nil {
+				query = query.Where("team_name = ?", team.Name)
+			}
 		}
 	}
 
@@ -67,10 +69,10 @@ func (h *OvertimeHandler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	if projectIDStr != "" {
 		if pid, err := strconv.ParseUint(projectIDStr, 10, 32); err == nil && pid > 0 {
 			selectedProjectID = uint(pid)
-			if teamIDStr == "" {
-				query = query.Joins("JOIN users ON users.id = overtime_entries.user_id")
+			var project models.Project
+			if err := db.First(&project, selectedProjectID).Error; err == nil {
+				query = query.Where("project_name = ?", project.Name)
 			}
-			query = query.Where("users.project_id = ?", selectedProjectID)
 		}
 	}
 
@@ -203,11 +205,24 @@ func (h *OvertimeHandler) CreateEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var targetUser models.User
+	if err := database.GetDB().Preload("Team").Preload("Project").First(&targetUser, targetUserID).Error; err != nil {
+		http.Redirect(w, r, "/overtime/new?error=User+not+found", http.StatusSeeOther)
+		return
+	}
+
 	entry := models.OvertimeEntry{
 		UserID:      targetUserID,
+		Username:    targetUser.DisplayName(),
 		Date:        date,
 		Hours:       hours,
 		Description: description,
+	}
+	if targetUser.Team != nil {
+		entry.TeamName = targetUser.Team.Name
+	}
+	if targetUser.Project != nil {
+		entry.ProjectName = targetUser.Project.Name
 	}
 
 	if err := database.GetDB().Create(&entry).Error; err != nil {
@@ -412,29 +427,30 @@ func (h *OvertimeHandler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	endDate := startDate.AddDate(0, 1, 0)
 
 	db := database.GetDB()
-	query := db.Preload("User").Preload("User.Team").Preload("User.Project").
-		Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate)
+	query := db.Where("date >= ? AND date < ?", startDate, endDate)
 
 	// Apply team filter
 	if teamIDStr != "" {
 		if tid, err := strconv.ParseUint(teamIDStr, 10, 32); err == nil && tid > 0 {
-			query = query.Joins("JOIN users ON users.id = overtime_entries.user_id").
-				Where("users.team_id = ?", tid)
+			var team models.Team
+			if err := db.First(&team, tid).Error; err == nil {
+				query = query.Where("team_name = ?", team.Name)
+			}
 		}
 	}
 
 	// Apply project filter
 	if projectIDStr != "" {
 		if pid, err := strconv.ParseUint(projectIDStr, 10, 32); err == nil && pid > 0 {
-			if teamIDStr == "" {
-				query = query.Joins("JOIN users ON users.id = overtime_entries.user_id")
+			var project models.Project
+			if err := db.First(&project, pid).Error; err == nil {
+				query = query.Where("project_name = ?", project.Name)
 			}
-			query = query.Where("users.project_id = ?", pid)
 		}
 	}
 
 	var entries []models.OvertimeEntry
-	query.Order("overtime_entries.date asc, overtime_entries.user_id asc").Find(&entries)
+	query.Order("date asc, user_id asc").Find(&entries)
 
 	filename := fmt.Sprintf("overtime_%d_%02d.csv", year, month)
 	w.Header().Set("Content-Type", "text/csv")
@@ -443,23 +459,13 @@ func (h *OvertimeHandler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	writer := csv.NewWriter(w)
 	defer writer.Flush()
 
-	// Write header
 	writer.Write([]string{"Employee", "Team", "Project", "Date", "Hours", "Description"})
 
-	// Write data
 	for _, entry := range entries {
-		teamName := ""
-		projectName := ""
-		if entry.User.Team != nil {
-			teamName = entry.User.Team.Name
-		}
-		if entry.User.Project != nil {
-			projectName = entry.User.Project.Name
-		}
 		writer.Write([]string{
-			entry.User.DisplayName(),
-			teamName,
-			projectName,
+			entry.Username,
+			entry.TeamName,
+			entry.ProjectName,
 			entry.Date.Format("2006-01-02"),
 			fmt.Sprintf("%.2f", entry.Hours),
 			entry.Description,
@@ -481,15 +487,17 @@ func (h *OvertimeHandler) AllEntriesPage(w http.ResponseWriter, r *http.Request)
 	yearStr := r.URL.Query().Get("year")
 
 	db := database.GetDB()
-	query := db.Preload("User").Preload("User.Team").Preload("User.Project")
+	query := db.Model(&models.OvertimeEntry{})
 
 	// Apply team filter
 	var selectedTeamID uint
 	if teamIDStr != "" {
 		if tid, err := strconv.ParseUint(teamIDStr, 10, 32); err == nil && tid > 0 {
 			selectedTeamID = uint(tid)
-			query = query.Joins("JOIN users ON users.id = overtime_entries.user_id").
-				Where("users.team_id = ?", selectedTeamID)
+			var team models.Team
+			if err := db.First(&team, selectedTeamID).Error; err == nil {
+				query = query.Where("team_name = ?", team.Name)
+			}
 		}
 	}
 
@@ -498,10 +506,10 @@ func (h *OvertimeHandler) AllEntriesPage(w http.ResponseWriter, r *http.Request)
 	if projectIDStr != "" {
 		if pid, err := strconv.ParseUint(projectIDStr, 10, 32); err == nil && pid > 0 {
 			selectedProjectID = uint(pid)
-			if teamIDStr == "" {
-				query = query.Joins("JOIN users ON users.id = overtime_entries.user_id")
+			var project models.Project
+			if err := db.First(&project, selectedProjectID).Error; err == nil {
+				query = query.Where("project_name = ?", project.Name)
 			}
-			query = query.Where("users.project_id = ?", selectedProjectID)
 		}
 	}
 
@@ -522,28 +530,25 @@ func (h *OvertimeHandler) AllEntriesPage(w http.ResponseWriter, r *http.Request)
 
 	// Apply date filters
 	if selectedMonth > 0 && selectedYear > 0 {
-		// Both month and year specified
 		startDate := time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.UTC)
 		endDate := startDate.AddDate(0, 1, 0)
-		query = query.Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate)
+		query = query.Where("date >= ? AND date < ?", startDate, endDate)
 	} else if selectedMonth > 0 {
-		// Only month specified - filter by month across all years
-		query = query.Where("EXTRACT(MONTH FROM overtime_entries.date) = ?", selectedMonth)
+		query = query.Where("EXTRACT(MONTH FROM date) = ?", selectedMonth)
 	} else if selectedYear > 0 {
-		// Only year specified - filter by year across all months
 		startDate := time.Date(selectedYear, 1, 1, 0, 0, 0, 0, time.UTC)
 		endDate := startDate.AddDate(1, 0, 0)
-		query = query.Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate)
+		query = query.Where("date >= ? AND date < ?", startDate, endDate)
 	}
 
 	var entries []models.OvertimeEntry
-	query.Order("overtime_entries.date desc").Find(&entries)
+	query.Order("date desc").Find(&entries)
 
 	// Group by user for summary
 	userHours := make(map[string]float64)
 	var totalHours float64
 	for _, entry := range entries {
-		userHours[entry.User.DisplayName()] += entry.Hours
+		userHours[entry.Username] += entry.Hours
 		totalHours += entry.Hours
 	}
 

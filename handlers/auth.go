@@ -529,13 +529,36 @@ func (h *AuthHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update full name
+	username := r.FormValue("username")
+	if username != "" && username != editUser.Username {
+		var count int64
+		db.Model(&models.User{}).Where("username = ? AND id != ?", username, editUser.ID).Count(&count)
+		if count > 0 {
+			http.Redirect(w, r, "/users/edit?id="+idStr+"&error=Username+already+taken", http.StatusSeeOther)
+			return
+		}
+		editUser.Username = username
+	}
+
 	fullName := r.FormValue("full_name")
 	if fullName != "" {
 		editUser.FullName = fullName
 	}
 
-	// Update role
+	newPassword := r.FormValue("password")
+	if newPassword != "" {
+		if len(newPassword) < 4 {
+			http.Redirect(w, r, "/users/edit?id="+idStr+"&error=Password+must+be+at+least+4+characters", http.StatusSeeOther)
+			return
+		}
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		if err != nil {
+			http.Redirect(w, r, "/users/edit?id="+idStr+"&error=Failed+to+hash+password", http.StatusSeeOther)
+			return
+		}
+		editUser.PasswordHash = string(hashedPassword)
+	}
+
 	roleStr := r.FormValue("role")
 	switch roleStr {
 	case "EMPLOYEE":
@@ -548,7 +571,8 @@ func (h *AuthHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		editUser.Role = models.RoleAdmin
 	}
 
-	// Update team
+	editUser.MustChangePassword = r.FormValue("must_change_password") == "on"
+
 	teamIDStr := r.FormValue("team_id")
 	if teamIDStr == "" {
 		editUser.TeamID = nil
@@ -559,7 +583,6 @@ func (h *AuthHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Update project
 	projectIDStr := r.FormValue("project_id")
 	if projectIDStr == "" {
 		editUser.ProjectID = nil

@@ -237,20 +237,27 @@ func (h *SupervisorHandler) SupervisorDashboard(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	// Build query for entries
+	// Build query for entries using denormalized fields
 	var entries []models.OvertimeEntry
 	var totalHours float64
 	userHours := make(map[string]float64)
 
-	query := db.Preload("User").Preload("User.Team").Preload("User.Project").
-		Joins("JOIN users ON users.id = overtime_entries.user_id").
-		Where("users.project_id = ?", *user.ProjectID)
+	query := db.Where("project_name = ?", user.Project.Name)
 
-	// Filter by team(s)
+	// Filter by team(s) using team names from authorized teams
 	if selectedTeamID > 0 {
-		query = query.Where("users.team_id = ?", selectedTeamID)
+		for _, t := range teams {
+			if t.ID == selectedTeamID {
+				query = query.Where("team_name = ?", t.Name)
+				break
+			}
+		}
 	} else {
-		query = query.Where("users.team_id IN ?", authorizedTeamIDs)
+		teamNames := make([]string, 0, len(teams))
+		for _, t := range teams {
+			teamNames = append(teamNames, t.Name)
+		}
+		query = query.Where("team_name IN ?", teamNames)
 	}
 
 	// Apply month/year filter
@@ -271,20 +278,20 @@ func (h *SupervisorHandler) SupervisorDashboard(w http.ResponseWriter, r *http.R
 	if selectedMonth > 0 && selectedYear > 0 {
 		startDate := time.Date(selectedYear, time.Month(selectedMonth), 1, 0, 0, 0, 0, time.UTC)
 		endDate := startDate.AddDate(0, 1, 0)
-		query = query.Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate)
+		query = query.Where("date >= ? AND date < ?", startDate, endDate)
 	} else if selectedMonth > 0 {
-		query = query.Where("EXTRACT(MONTH FROM overtime_entries.date) = ?", selectedMonth)
+		query = query.Where("EXTRACT(MONTH FROM date) = ?", selectedMonth)
 	} else if selectedYear > 0 {
 		startDate := time.Date(selectedYear, 1, 1, 0, 0, 0, 0, time.UTC)
 		endDate := startDate.AddDate(1, 0, 0)
-		query = query.Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate)
+		query = query.Where("date >= ? AND date < ?", startDate, endDate)
 	}
 
-	query.Order("overtime_entries.date desc").Find(&entries)
+	query.Order("date desc").Find(&entries)
 
 	// Calculate totals
 	for _, entry := range entries {
-		userHours[entry.User.DisplayName()] += entry.Hours
+		userHours[entry.Username] += entry.Hours
 		totalHours += entry.Hours
 	}
 
@@ -419,20 +426,30 @@ func (h *SupervisorHandler) SupervisorExportCSV(w http.ResponseWriter, r *http.R
 	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 	endDate := startDate.AddDate(0, 1, 0)
 
-	query := db.Preload("User").Preload("User.Team").Preload("User.Project").
-		Joins("JOIN users ON users.id = overtime_entries.user_id").
-		Where("users.project_id = ?", *user.ProjectID)
+	// Get authorized teams for name lookup
+	authorizedTeams := h.getAuthorizedTeams(user.ID)
 
-	// Filter by team(s)
+	query := db.Where("project_name = ?", user.Project.Name)
+
+	// Filter by team(s) using denormalized team_name
 	if selectedTeamID > 0 {
-		query = query.Where("users.team_id = ?", selectedTeamID)
+		for _, t := range authorizedTeams {
+			if t.ID == selectedTeamID {
+				query = query.Where("team_name = ?", t.Name)
+				break
+			}
+		}
 	} else {
-		query = query.Where("users.team_id IN ?", authorizedTeamIDs)
+		teamNames := make([]string, 0, len(authorizedTeams))
+		for _, t := range authorizedTeams {
+			teamNames = append(teamNames, t.Name)
+		}
+		query = query.Where("team_name IN ?", teamNames)
 	}
 
 	var entries []models.OvertimeEntry
-	query.Where("overtime_entries.date >= ? AND overtime_entries.date < ?", startDate, endDate).
-		Order("overtime_entries.date asc, overtime_entries.user_id asc").
+	query.Where("date >= ? AND date < ?", startDate, endDate).
+		Order("date asc, user_id asc").
 		Find(&entries)
 
 	// Build filename
@@ -451,23 +468,13 @@ func (h *SupervisorHandler) SupervisorExportCSV(w http.ResponseWriter, r *http.R
 	writer := csv.NewWriter(w)
 	defer writer.Flush()
 
-	// Write header
 	writer.Write([]string{"Employee", "Team", "Project", "Date", "Hours", "Description"})
 
-	// Write data
 	for _, entry := range entries {
-		teamName := ""
-		projectName := ""
-		if entry.User.Team != nil {
-			teamName = entry.User.Team.Name
-		}
-		if entry.User.Project != nil {
-			projectName = entry.User.Project.Name
-		}
 		writer.Write([]string{
-			entry.User.DisplayName(),
-			teamName,
-			projectName,
+			entry.Username,
+			entry.TeamName,
+			entry.ProjectName,
 			entry.Date.Format("2006-01-02"),
 			fmt.Sprintf("%.2f", entry.Hours),
 			entry.Description,

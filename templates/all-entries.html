@@ -85,7 +85,7 @@
     <tbody>
       {{range .Entries}}
       <tr>
-        <td>{{.User.DisplayName}}</td>
+        <td>{{.Username}}</td>
         <td>{{.Date.Format "2006-01-02"}}</td>
         <td>{{printf "%.2f" .Hours}}</td>
         <td title="{{.Description}}">{{if gt (len .Description) 50}}{{slice .Description 0 50}}...{{else}}{{.Description}}{{end}}</td>

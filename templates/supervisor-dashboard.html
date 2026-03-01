@@ -108,8 +108,8 @@
       {{range .Entries}}
       <tr>
         <td>{{.Date.Format "2006-01-02"}}</td>
-        <td>{{.User.DisplayName}}</td>
-        <td>{{if .User.Team}}{{.User.Team.Name}}{{else}}<span style="color:#555">-</span>{{end}}</td>
+        <td>{{.Username}}</td>
+        <td>{{if .TeamName}}{{.TeamName}}{{else}}<span style="color:#555">-</span>{{end}}</td>
         <td>{{printf "%.2f" .Hours}}</td>
         <td>{{if .Description}}{{.Description}}{{else}}<span style="color:#555">-</span>{{end}}</td>
       </tr>
